@@ -9,3 +9,8 @@ Resources:
     Properties:
       RepositoryName: hmrc
       RepositoryDescription: tax documents
+  InfraCodeCommitRepo:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: infra
+      RepositoryDescription: core infrastructure repository
