@@ -1,0 +1,11 @@
+Resources:
+  KhineCodeCommitRepo:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: khine.net
+      RepositoryDescription: khine.net
+  HmrcCodeCommitRepo:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: hmrc
+      RepositoryDescription: tax documents

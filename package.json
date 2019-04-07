@@ -1,0 +1,17 @@
+{
+  "name": "infra",
+  "version": "1.0.0",
+  "description": "core infrastructure stack",
+  "private": true,
+  "scripts": {},
+  "author": "Norman Khine <norman@khine.net> (https://khine.net/)",
+  "dependencies": {},
+  "devDependencies": {
+    "dev": "^0.1.3",
+    "serverless-iam-roles-per-function": "^1.0.4",
+    "serverless-parameters": "0.0.7",
+    "serverless-plugin-tracing": "^2.0.0",
+    "serverless-pseudo-parameters": "2.2.0",
+    "serverless-vpc-plugin": "^0.3.1"
+  }
+}

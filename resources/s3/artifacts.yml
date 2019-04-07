@@ -1,0 +1,51 @@
+Resources:
+  ArtifactsBucket:
+    # DeletionPolicy: Retain
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  ArtifactsBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket:
+        Ref: ArtifactsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: LambdaAccessS3
+            Effect: Allow
+            Action:
+              - 's3:PutObject'
+            Principal:
+              AWS:
+                Fn::GetAtt:
+                  - IamRoleLambdaExecution
+                  - Arn
+            Resource:
+              - Fn::GetAtt:
+                  - ArtifactsBucket
+                  - Arn
+              - Fn::Join:
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - Ref: ArtifactsBucket
+                    - '/*'
+            Condition:
+              StringEquals:
+                'aws:sourceVpce':
+                  Ref: S3VPCEndpoint
+Outputs:
+  ArtifactsBucket:
+    Value:
+      Fn::GetAtt:
+        - ArtifactsBucket
+        - Arn

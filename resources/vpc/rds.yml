@@ -1,0 +1,10 @@
+Resources:
+  rdsVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: '10.1.0.0/16'
+      Tags:
+      - Key: Name
+        Value: myrdsvpc
+      - Key: builtby
+        Value: cloudformation

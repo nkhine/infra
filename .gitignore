@@ -1,0 +1,12 @@
+# package directories
+node_modules
+jspm_packages
+vendor
+# Serverless directories
+.serverless
+.aws
+bin
+build/*
+config.yml
+package-lock.json
+vendor.json

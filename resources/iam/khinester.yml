@@ -1,0 +1,79 @@
+Resources:
+  ItS3User:
+    DependsOn: ArtifactsBucket
+    Type: AWS::IAM::User
+    Properties:
+      Policies:
+      - PolicyName: ItS3Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Sid: AllowUserToSeeBucketListInTheConsole
+            Action:
+            - s3:ListAllMyBuckets
+            - s3:GetBucketLocation
+            Effect: Allow
+            Resource:
+            - arn:aws:s3:::*
+          - Sid: AllowRootAndUploadsBucket
+            Action:
+            - s3:ListBucket
+            Effect: Allow
+            Resource:
+            - Fn::Join:
+              - ''
+              - - 'arn:aws:s3:::'
+                - Ref: ArtifactsBucket
+            Condition:
+              StringEquals:
+                s3:prefix:
+                - ''
+                - it/
+                s3:delimiter:
+                - '/'
+          - Sid: AllowListingOfUploadsFolder
+            Action:
+            - s3:ListBucket
+            Effect: Allow
+            Resource:
+            - Fn::Join:
+              - ''
+              - - 'arn:aws:s3:::'
+                - Ref: ArtifactsBucket
+            Condition:
+              StringLike:
+                s3:prefix:
+                - it/*
+          - Sid: AllowAllS3ActionsInUploadsFolder
+            Effect: Allow
+            Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:GetObjectVersion
+            Resource:
+            - Fn::Join:
+              - ''
+              - - 'arn:aws:s3:::'
+                - Ref: ArtifactsBucket
+                - '/it'
+                - '/*'
+
+  ItUserAccessKey:
+    DependsOn: ItS3User
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName:
+        Ref: ItS3User
+
+
+Outputs:
+  ItUserAccessKeyID:
+    Description: The Access Key for S3 bucket access
+    Value:
+      Ref: ItUserAccessKey
+  ItUserAccessKeySecret:
+    Description: The Access Key Secret for S3 bucket access
+    Value:
+      Fn::GetAtt:
+        - ItUserAccessKey
+        - SecretAccessKey

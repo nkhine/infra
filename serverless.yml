@@ -1,0 +1,133 @@
+service: infra
+
+plugins:
+  - serverless-parameters
+  - serverless-pseudo-parameters
+  - serverless-plugin-tracing
+  - serverless-iam-roles-per-function
+  - serverless-vpc-plugin
+provider:
+  name: aws
+  runtime: go1.x
+  deploymentBucket:
+    serverSideEncryption: AES256
+  environment:
+    API_GATEWAY_ENDPOINT:
+      Fn::Join:
+        - ''
+        - - 'https://'
+          - Ref: 'ApiGatewayRestApi'
+          - '.execute-api.${self:provider.region}.amazonaws.com/${opt:stage}'
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - 's3:PutObject'
+      Resource:
+        Fn::Join:
+          - ''
+          - - 'arn:aws:s3:::'
+            - Ref: ArtifactsBucket
+            - '/*'
+    - Effect: Allow
+      Action:
+        - s3:getObject
+        - s3:putObject
+        - s3:GetObjectVersion
+        - s3:ListBucketVersions
+        - s3:putBucketPolicy
+        - states:startExecution
+        - sqs:DeleteMessage
+        - sqs:ReceiveMessage
+        - sqs:GetQueueAttributes
+      Resource: "*"
+    - Effect: "Allow" # xray permissions (required)
+      Action:
+        - "xray:PutTraceSegments"
+        - "xray:PutTelemetryRecords"
+      Resource:
+        - "*"
+    - Effect: Allow # cloudwatch permissions for API Gateway tracing (required)
+      Action:
+        - cloudwatch:*
+        - logs:*
+      Resource:
+        - "*"
+  stage: ${opt:stage}
+  tracing: true # enable tracing
+  apiGateway:
+    apiKeySourceType: HEADER
+  apiKeys:
+    - khineAPIKey
+
+  vpc:
+    securityGroupIds:
+      - Ref: LambdaExecutionSecurityGroup # this plugin will create this security group for you
+    subnetIds: # if specifying zones below, include the same number of subnets here
+      - Ref: AppSubnet1
+      - Ref: AppSubnet2
+      - Ref: AppSubnet3
+      #- Ref: AppSubnet4
+      #- Ref: AppSubnet5
+      #- Ref: AppSubnet6
+
+package:
+  individually: true
+  exclude:
+    - ./**
+    - .npmrc
+    - package*.json
+    - resources/**
+    - node_modules/**
+
+custom:
+  parameters:
+    AccessControl:
+      Description: AWS S3 access control for bucket
+      Type: String
+      Default: BucketOwnerFullControl
+  vpcConfig:
+    cidrBlock: '10.0.0.0/16'
+    # if createNatGateway is a boolean "true", a NAT Gateway and EIP will be
+    # provisioned in each zone auto-discovered or specified below.
+    # if createNatGateway is a number, that number of NAT Gateways will be provisioned
+    createNatGateway: 2
+
+    # When enabled, the DB subnet will only be accessible from the Application subnet
+    # Both the Public and Application subnets will be accessible from 0.0.0.0/0
+    createNetworkAcl: false
+
+    # Whether to create the DB subnet
+    createDbSubnet: true
+
+    # Whether to enable VPC flow logging to an S3 bucket
+    createFlowLogs: false
+
+    # optionally specify AZs (defaults to auto-discover all availabile AZs)
+    zones:
+      - eu-west-1a
+      - eu-west-1b
+      - eu-west-1c
+
+functions:
+  # API Functions
+  status:
+    handler: bin/status
+    description: Status/healthcheck function for API
+    memorySize: 128
+    package:
+      individually: true
+      include:
+        - ./bin/status
+    events:
+      - http:
+          path: status
+          method: get
+    timeout: 30
+
+# Custom resources
+resources:
+  # - Resources:
+  - ${file(resources/codecommit/repositories.yml)}
+  - ${file(resources/s3/artifacts.yml)}
+  - ${file(resources/iam/khinester.yml)}
+  # - ${file(resources/vpc/rds.yml)}
