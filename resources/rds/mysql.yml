@@ -1,166 +1,185 @@
 Resources:
-  RdsDbSubnetGroup:
-    Type: AWS::RDS::DBSubnetGroup
+
+  # RdsSecurityGroup:
+  #   Type: AWS::EC2::SecurityGroup
+  #   Properties:
+  #     VpcId:
+  #       Ref: 'VPC'
+  #     GroupDescription: Allow MySQL (TCP3306)
+  #     SecurityGroupIngress:
+  #       - IpProtocol: tcp
+  #         FromPort: 3306
+  #         ToPort: 3306
+  #         CidrIp:
+  #           Ref: AppSubnet1
+
+  #     Tags:
+  #       - Key: CloudFormationArn
+  #         Value:
+  #           Ref 'AWS::StackId'
+
+
+  MonitoringRdsRole:
+    Type: AWS::IAM::Role
     Properties:
-      DBSubnetGroupDescription: Database subnets for RDS
-      SubnetIds:
-        - Ref: VpcRdsSubnetId1
-        - Ref: VpcRdsSubnetId2
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - monitoring.rds.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole
+      Path: /
+
+  RDSDBClusterParameterGroup:
+    Type: AWS::RDS::DBClusterParameterGroup
+    Properties:
+      Description: CloudFormation Aurora Cluster Parameter Group
+      Family: aurora5.6
+      Parameters:
+        server_audit_logging: 0
+        server_audit_events: 'CONNECT,QUERY,QUERY_DCL,QUERY_DDL,QUERY_DML,TABLE'
       Tags:
         - Key: CloudFormationArn
           Value:
             Ref: 'AWS::StackId'
-        - Key: Env
+
+  RDSDBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: CloudFormation Aurora Parameter Group
+      Family: aurora5.6
+      Parameters:
+        aurora_lab_mode: 0
+        general_log: 1
+        slow_query_log: 1
+        long_query_time: 10
+      Tags:
+        - Key: CloudFormationArn
           Value:
-            Ref: Env
+            Ref: 'AWS::StackId'
 
-#   RdsSecurityGroup:
-#     Type: AWS::EC2::SecurityGroup
-#     Properties:
-#       VpcId: !Ref 'VpcId'
-#       GroupDescription: Allow MySQL (TCP3306)
-#       SecurityGroupIngress:
-#         - IpProtocol: tcp
-#           FromPort: 3306
-#           ToPort: 3306
-#           CidrIp: !Ref VpcApSubnet
-#       Tags:
-#         - Key: CloudFormationArn
-#           Value: !Ref 'AWS::StackId'
-#         - Key: Env
-#           Value: !Ref Env
+  LogGroupRdsError:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Join:
+          - ''
+          - - '/aws/rds/cluster/'
+            - Ref: 'AWS::StackName'
+            - '/error'
+      RetentionInDays: 14
 
-#   MonitoringRdsRole:
-#     Type: AWS::IAM::Role
-#     Properties:
-#       AssumeRolePolicyDocument:
-#         Version: '2012-10-17'
-#         Statement:
-#         - Effect: Allow
-#           Principal:
-#             Service:
-#             - monitoring.rds.amazonaws.com
-#           Action:
-#           - sts:AssumeRole
-#       ManagedPolicyArns:
-#       - arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole
-#       Path: /
+  LogGroupRdsGeneral:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Join:
+          - ''
+          - - '/aws/rds/cluster/'
+            - Ref: 'AWS::StackName'
+            - '/general'
+      RetentionInDays: 14
 
-#   RdsDbCluster:
-#     Type: AWS::RDS::DBCluster
-#     Properties:
-#       DBSubnetGroupName: !Ref 'RdsDbSubnetGroup'
-#       MasterUsername: !Ref 'RdsDbMasterUsername'
-#       MasterUserPassword: !Ref 'RdsDbMasterUserPassword'
-#       DatabaseName: !Ref 'RdsDbDatabaseName'
-#       Engine: aurora-mysql
-#       VpcSecurityGroupIds:
-#         - !Ref 'RdsSecurityGroup'
-#       DBClusterIdentifier : !Sub '${AWS::StackName}-dbcluster'
-#       DBClusterParameterGroupName: !Ref 'RdsDbClusterParameterGroup'
-#       PreferredBackupWindow: 18:05-18:35
-#       BackupRetentionPeriod: 7
-#       PreferredMaintenanceWindow: Thu:18:35-Thu:19:05
-#       BackupRetentionPeriod: 7
-#       StorageEncrypted: 'false'
-#       Tags:
-#         - Key: CloudFormationArn
-#           Value: !Ref 'AWS::StackId'
-#         - Key: Env
-#           Value: !Ref Env
+  RDSCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      MasterUsername:
+        Ref: DBMasterUsername
+      MasterUserPassword:
+        Ref: DBMasterPassword
+      Engine: aurora
+      DBSubnetGroupName:
+        Ref: RDSSubnetGroup
+      DBClusterParameterGroupName:
+        Ref: RDSDBClusterParameterGroup
+  RDSDBInstance1:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBSubnetGroupName:
+        Ref: RDSSubnetGroup
+      DBParameterGroupName:
+        Ref: RDSDBParameterGroup
+      Engine: aurora
+      DBClusterIdentifier:
+        Ref: RDSCluster
+      PubliclyAccessible: 'false'
+      AvailabilityZone:
+        Fn::GetAtt:
+        - DBSubnet1
+        - AvailabilityZone
+      DBInstanceClass: db.t2.small
+      AutoMinorVersionUpgrade: 'true'
+      PreferredMaintenanceWindow: Thu:19:35-Thu:20:35
+      MonitoringInterval: 60
+      MonitoringRoleArn:
+        Fn::GetAtt:
+        - MonitoringRdsRole
+        - Arn
 
-#   RdsDbInstance1:
-#     Type: AWS::RDS::DBInstance
-#     Properties:
-#       DBSubnetGroupName: !Ref 'RdsDbSubnetGroup'
-#       DBParameterGroupName: !Ref 'RdsDbParameterGroup'
-#       Engine: aurora-mysql
-#       DBClusterIdentifier: !Ref 'RdsDbCluster'
-#       DBInstanceIdentifier : !Sub '${AWS::StackName}-dbinstance-1'
-#       AutoMinorVersionUpgrade: 'true'
-#       PubliclyAccessible: 'false'
-#       PreferredMaintenanceWindow: Thu:19:05-Thu:19:35
-#       AvailabilityZone: !Select [0, !GetAZs {Ref: 'AWS::Region'}]
-#       DBInstanceClass: !Ref 'RdsDbInstanceClass'
-#       MonitoringInterval: 60
-#       MonitoringRoleArn: !GetAtt 'MonitoringRdsRole.Arn'
-#       Tags:
-#         - Key: CloudFormationArn
-#           Value: !Ref 'AWS::StackId'
-#         - Key: Env
-#           Value: !Ref Env
+  RDSDBInstance2:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBSubnetGroupName:
+        Ref: RDSSubnetGroup
+      DBParameterGroupName:
+        Ref: RDSDBParameterGroup
+      Engine: aurora
+      DBClusterIdentifier:
+        Ref: RDSCluster
+      PubliclyAccessible: 'false'
+      AvailabilityZone:
+        Fn::GetAtt:
+        - DBSubnet2
+        - AvailabilityZone
+      DBInstanceClass: db.t2.small
+      AutoMinorVersionUpgrade: 'true'
+      PreferredMaintenanceWindow: Thu:20:35-Thu:21:35
+      MonitoringInterval: 60
+      MonitoringRoleArn:
+        Fn::GetAtt:
+        - MonitoringRdsRole
+        - Arn
 
-#   RdsDbInstance2:
-#     Type: AWS::RDS::DBInstance
-#     Condition: MultiAzEnable
-#     Properties:
-#       DBSubnetGroupName: !Ref 'RdsDbSubnetGroup'
-#       DBParameterGroupName: !Ref 'RdsDbParameterGroup'
-#       Engine: aurora-mysql
-#       DBClusterIdentifier: !Ref 'RdsDbCluster'
-#       DBInstanceIdentifier : !Sub '${AWS::StackName}-dbinstance-2'
-#       AutoMinorVersionUpgrade: 'true'
-#       PubliclyAccessible: 'false'
-#       SourceDBInstanceIdentifier: !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:db:${AWS::StackName}-dbinstance-1'
-#       PreferredMaintenanceWindow: Thu:19:35-Thu:19:35
-#       AvailabilityZone: !Select [1, !GetAZs {Ref: 'AWS::Region'}]
-#       DBInstanceClass: !Ref 'RdsDbInstanceClass'
-#       MonitoringInterval: 60
-#       MonitoringRoleArn: !GetAtt 'MonitoringRdsRole.Arn'
-#       Tags:
-#         - Key: CloudFormationArn
-#           Value: !Ref 'AWS::StackId'
-#         - Key: Env
-#           Value: !Ref Env
+  # RDSDBInstance3:
+  #   Type: AWS::RDS::DBInstance
+  #   Properties:
+  #     DBSubnetGroupName:
+  #       Ref: RDSSubnetGroup
+  #     DBParameterGroupName:
+  #       Ref: RDSDBParameterGroup
+  #     Engine: aurora
+  #     DBClusterIdentifier:
+  #       Ref: RDSCluster
+  #     PubliclyAccessible: 'false'
+  #     AvailabilityZone:
+  #       Fn::GetAtt:
+  #       - DBSubnet3
+  #       - AvailabilityZone
+  #     DBInstanceClass: db.t2.small
+  #     AutoMinorVersionUpgrade: 'true'
+  #     PreferredMaintenanceWindow: Thu:20:35-Thu:21:35
+  #     MonitoringInterval: 60
+  #     MonitoringRoleArn:
+  #       Fn::GetAtt:
+  #       - MonitoringRdsRole
+  #       - Arn
 
+Outputs:
+  RDSClusterEndpoint:
+    Description: Database Cluster URL Endpoint.
+    Value:
+      Fn::GetAtt:
+        - 'RDSCluster'
+        - 'Endpoint.Address'
 
-#   RdsDbClusterParameterGroup:
-#     Type: AWS::RDS::DBClusterParameterGroup
-#     Properties:
-#       Description: CloudFormation Aurora Cluster Parameter Group
-#       Family: aurora-mysql5.7
-#       Parameters:
-#         server_audit_logging: 0
-#         server_audit_events: 'CONNECT,QUERY,QUERY_DCL,QUERY_DDL,QUERY_DML,TABLE'
-#       Tags:
-#         - Key: CloudFormationArn
-#           Value: !Ref 'AWS::StackId'
-#         - Key: Env
-#           Value: !Ref Env
-
-#   RdsDbParameterGroup:
-#     Type: AWS::RDS::DBParameterGroup
-#     Properties:
-#       Description: CloudFormation Aurora Parameter Group
-#       Family: aurora-mysql5.7
-#       Parameters:
-#         aurora_lab_mode: 0
-#         general_log: 1
-#         slow_query_log: 1
-#         long_query_time: 10
-#       Tags:
-#         - Key: CloudFormationArn
-#           Value: !Ref 'AWS::StackId'
-#         - Key: Env
-#           Value: !Ref Env
-
-#   LogGroupRdsError:
-#     Type: AWS::Logs::LogGroup
-#     Properties:
-#       LogGroupName: !Sub '/aws/rds/cluster/${AWS::StackName}-dbcluster/error'
-#       RetentionInDays: 14
-#   LogGroupRdsGeneral:
-#     Type: AWS::Logs::LogGroup
-#     Properties:
-#       LogGroupName: !Sub '/aws/rds/cluster/${AWS::StackName}-dbcluster/general'
-#       RetentionInDays: 14
-
-# Outputs:
-#   RdsSecurityGroup:
-#     Value: !Ref 'RdsSecurityGroup'
-
-#   RdsDbClusterEndpoint:
-#     Value: !GetAtt 'RdsDbCluster.Endpoint.Address'
-
-#   RdsDbClusterReadEndpoint:
-#     Value: !GetAtt 'RdsDbCluster.ReadEndpoint.Address'
+  RDSClusterReadEndpoint:
+    Description: Database Cluster Read URL Endpoint.
+    Value:
+      Fn::GetAtt:
+        - 'RDSCluster'
+        - 'ReadEndpoint.Address'

@@ -6,6 +6,7 @@ plugins:
   - serverless-plugin-tracing
   - serverless-iam-roles-per-function
   - serverless-vpc-plugin
+
 provider:
   name: aws
   runtime: go1.x
@@ -62,10 +63,10 @@ provider:
   vpc:
     securityGroupIds:
       - Ref: LambdaExecutionSecurityGroup # this plugin will create this security group for you
-    subnetIds: # if specifying zones below, include the same number of subnets here
-      - Ref: AppSubnet1
-      - Ref: AppSubnet2
-      - Ref: AppSubnet3
+    # subnetIds: # if specifying zones below, include the same number of subnets here
+    #   - Ref: AppSubnet1
+    #   - Ref: AppSubnet2
+    #   - Ref: AppSubnet3
       #- Ref: AppSubnet4
       #- Ref: AppSubnet5
       #- Ref: AppSubnet6
@@ -85,28 +86,40 @@ custom:
       Description: AWS S3 access control for bucket
       Type: String
       Default: BucketOwnerFullControl
+    DBMasterUsername:
+      Description: "Master username for the DB instance (ignored when DBSnapshotIdentifier is set, value used from snapshot)"
+      Type: "String"
+      Default: ${file(./config.yml):${opt:stage}.DB_MASTER_USERNAME}
+    DBMasterPassword:
+      Description: "Master password for the DB instance (ignored when DBSnapshotIdentifier is set, value used from snapshot)"
+      Type: String
+      NoEcho: true
+      Default: ${file(./config.yml):${opt:stage}.DB_MASTER_PASSWORD}
   vpcConfig:
-    cidrBlock: '10.0.0.0/16'
+    cidrBlock: ${file(./config.yml):${opt:stage}.CIDR_BLOCK}
     # if createNatGateway is a boolean "true", a NAT Gateway and EIP will be
     # provisioned in each zone auto-discovered or specified below.
     # if createNatGateway is a number, that number of NAT Gateways will be provisioned
-    createNatGateway: 2
+    createNatGateway: true
 
     # When enabled, the DB subnet will only be accessible from the Application subnet
     # Both the Public and Application subnets will be accessible from 0.0.0.0/0
-    createNetworkAcl: false
+    createNetworkAcl: true
 
     # Whether to create the DB subnet
     createDbSubnet: true
 
     # Whether to enable VPC flow logging to an S3 bucket
-    createFlowLogs: false
+    createFlowLogs: true
 
     # optionally specify AZs (defaults to auto-discover all availabile AZs)
     zones:
       - eu-west-1a
       - eu-west-1b
       - eu-west-1c
+    # services:
+    #   - kms
+    #   - secretsmanager
 
 functions:
   # API Functions
@@ -130,4 +143,4 @@ resources:
   - ${file(resources/codecommit/repositories.yml)}
   - ${file(resources/s3/artifacts.yml)}
   - ${file(resources/iam/khinester.yml)}
-  # - ${file(resources/vpc/rds.yml)}
+  # - ${file(resources/rds/mysql.yml)}
