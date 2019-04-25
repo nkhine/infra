@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	log "github.com/sirupsen/logrus"
 )
 
 // Response is of type APIGatewayProxyResponse since we're leveraging the
@@ -18,6 +19,9 @@ type Response events.APIGatewayProxyResponse
 // Handler is our lambda handler invoked by the `lambda.Start` function call
 func Handler(ctx context.Context) (Response, error) {
 	var buf bytes.Buffer
+	log.WithFields(log.Fields{
+		"website": "api.khine.net",
+	}).Info("A khinester appears")
 
 	body, err := json.Marshal(map[string]interface{}{
 		"message": "khine api serverless status endpoint",
